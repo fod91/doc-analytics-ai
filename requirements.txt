@@ -1,0 +1,17 @@
+fastapi
+uvicorn
+pydantic>=2
+sqlalchemy>=2
+psycopg2
+pandas
+numpy
+scikit-learn
+streamlit
+requests
+pytest
+pytest-cov
+httpx
+black
+ruff
+python-dotenv
+alembic==1.13.2
