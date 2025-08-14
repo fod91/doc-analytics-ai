@@ -5,34 +5,16 @@ services:
     restart: unless-stopped
     ports: ["5432:5432"]
     environment:
-      POSTGRES_USER: ${PGUSER:-pdfi}
-      POSTGRES_PASSWORD: ${PGPASSWORD:-pdfi}
-      POSTGRES_DB: ${PGDATABASE:-pdf_ingest}
+      POSTGRES_USER: ${PGUSER:?set PGUSER in .env}
+      POSTGRES_PASSWORD: ${PGPASSWORD:?set PGPASSWORD in .env}
+      POSTGRES_DB: ${PGDATABASE:?set PGDATABASE in .env}
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${PGUSER:-pdfi} -d ${PGDATABASE:-pdf_ingest}"]
+      test: ["CMD-SHELL", "pg_isready -U ${PGUSER} -d ${PGDATABASE}"]
       interval: 5s
       timeout: 5s
       retries: 10
     volumes:
       - pgdata:/var/lib/postgresql/data
 
-  minio:
-    image: minio/minio:latest
-    container_name: docai_minio
-    command: server /data --console-address ":9001"
-    restart: unless-stopped
-    ports: ["9000:9000", "9001:9001"]
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
-    healthcheck:
-      test: ["CMD", "curl", "-sSf", "http://localhost:9000/minio/health/ready"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-    volumes:
-      - miniodata:/data
-
 volumes:
   pgdata:
-  miniodata:
