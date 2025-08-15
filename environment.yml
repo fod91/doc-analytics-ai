@@ -9,6 +9,7 @@ dependencies:
   - pydantic>=2
   - sqlalchemy>=2
   - psycopg2
+  - boto3
   - numpy
   - pandas
   - scikit-learn
