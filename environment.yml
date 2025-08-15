@@ -4,23 +4,22 @@ channels:
 dependencies:
   - python=3.11
   - pip
-  - fastapi
+  - boto3
   - uvicorn
+  - fastapi
   - pydantic>=2
   - sqlalchemy>=2
   - psycopg2
-  - boto3
   - numpy
   - pandas
   - scikit-learn
-  - streamlit
-  - requests
   - pytest
   - pytest-cov
   - httpx
   - black
-  - pre-commit
   - ruff
+  - pre-commit
   - python-dotenv
   - pip:
       - alembic==1.13.2
+      - streamlit
