@@ -8,8 +8,9 @@ import logging
 import uuid
 
 from .db import Base, engine, SessionLocal
-from .schema import IngestItem
+from .schema import IngestItem, SentimentSummary
 from .s3 import ensure_bucket_if_missing, upload_fileobj, presigned_get_url
+from .analytics import summarise_sentiment
 
 # models import - needed to establish tables if DB not up on startup
 # otherwise psql will not see any relations
@@ -110,3 +111,11 @@ async def upload(file: UploadFile = File(...)):
     upload_fileobj(file.file, key, content_type=file.content_type)
     url = presigned_get_url(key, expires_seconds=1800)
     return {"ok": True, "key": key, "url": url}
+
+
+@app.get("/analytics/sentiment", response_model=SentimentSummary)
+def analytics_sentiment(db: Session = Depends(get_db)):
+    # Aggregate label counts across all transcripts
+    rows = db.query(models.Transcript.text, models.Transcript.label).all()
+    summary = summarise_sentiment(rows)
+    return SentimentSummary(**summary)
