@@ -66,3 +66,9 @@ def presigned_get_url(object_name: str, expires_seconds: int = 1800) -> str:
         Params={"Bucket": S3_BUCKET, "Key": object_name},
         ExpiresIn=expires_seconds,
     )
+
+
+def head_object(object_name: str) -> dict:
+    s3 = _make_client()
+    resp = s3.head_object(Bucket=S3_BUCKET, Key=object_name)
+    return resp

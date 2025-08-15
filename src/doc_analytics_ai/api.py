@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, UploadFile, File
+from fastapi import FastAPI, Depends, UploadFile, File, Form
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import OperationalError
@@ -9,12 +9,14 @@ import uuid
 
 from .db import Base, engine, SessionLocal
 from .schema import IngestItem, SentimentSummary
-from .s3 import ensure_bucket_if_missing, upload_fileobj, presigned_get_url
+from .s3 import ensure_bucket_if_missing, upload_fileobj, presigned_get_url, head_object
 from .analytics import summarise_sentiment
+from .settings import S3_BUCKET
 
 # models import - needed to establish tables if DB not up on startup
 # otherwise psql will not see any relations
 from . import models  # noqa: F401
+from .models import ObjectStoreItem
 
 log = logging.getLogger("doc-analytics-ai")
 
@@ -95,7 +97,12 @@ def ingest(items: list[IngestItem], db: Session = Depends(get_db)):
 
 
 @app.post("/upload")
-async def upload(file: UploadFile = File(...)):
+# async def upload(file: UploadFile = File(...)):
+async def upload(
+    file: UploadFile = File(...),
+    source: str | None = Form(None),
+    db: Session = Depends(get_db),
+):
     # Store a single file in S3/MinIO using boto3
     # Returns object key and a presigned GET URL
     if not S3_READY:
@@ -109,8 +116,27 @@ async def upload(file: UploadFile = File(...)):
 
     # Stream upload without loading into memory
     upload_fileobj(file.file, key, content_type=file.content_type)
+
+    # Create the model type and add to the db
+    meta = head_object(key)
+    obj = ObjectStoreItem(
+        bucket=S3_BUCKET,
+        key=key,
+        content_type=meta.get("ContentType"),
+        size_bytes=meta.get("ContentLength"),
+        etag=(meta.get("ETag") or "").strip('"'),
+        source=source,
+    )
+    db.add(obj)
+    db.commit()
     url = presigned_get_url(key, expires_seconds=1800)
-    return {"ok": True, "key": key, "url": url}
+    return {
+        "ok": True,
+        "id": str(obj.id),
+        "bucket": obj.bucket,
+        "key": obj.key,
+        "url": url,
+    }
 
 
 @app.get("/analytics/sentiment", response_model=SentimentSummary)
