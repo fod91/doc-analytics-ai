@@ -16,5 +16,11 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
 
+  api:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   pgdata:
