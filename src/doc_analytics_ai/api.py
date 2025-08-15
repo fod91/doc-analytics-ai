@@ -1,11 +1,13 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from sqlalchemy import text
+from sqlalchemy.orm import Session
 from sqlalchemy.exc import OperationalError
 import threading
 import time
 import logging
 
-from .db import Base, engine
+from .db import Base, engine, SessionLocal
+from .schema import IngestItem
 
 # models import - needed to establish tables if DB not up on startup
 # otherwise psql will not see any relations
@@ -48,6 +50,25 @@ def on_startup():
     t.start()
 
 
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
 @app.get("/health")
 def health():
     return {"status": "ok", "db_ready": DB_READY}
+
+
+@app.post("/ingest")
+def ingest(items: list[IngestItem], db: Session = Depends(get_db)):
+    # Persist a batch of rows (source, text, optional label)
+    objs = [
+        models.Transcript(source=i.source, text=i.text, label=i.label) for i in items
+    ]
+    db.add_all(objs)
+    db.commit()
+    return {"ingested": len(objs)}
