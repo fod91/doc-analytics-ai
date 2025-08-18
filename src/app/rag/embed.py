@@ -57,12 +57,21 @@ def _hash_vec(texts: List[str], dim: int) -> np.ndarray:
     return out / norms
 
 
+def _embed_batch(texts: List[str], backend: str, model: str, dim: int) -> np.ndarray:
+    if backend == "hash":
+        return _hash_vec(texts, dim=dim)
+    raise ValueError(f"Unknown backend: {backend}")
+
+
 def run_embed_hash(
     chunks_path: Path = DEFAULT_CHUNKS,
     out_vectors: Path = DEFAULT_VECTORS,
     out_meta: Path = DEFAULT_META,
-    dim: int = 384,
+    *,
+    backend: str | None = None,
+    model: str | None = None,
     batch_size: int = 64,
+    dim: int = 384,
 ) -> Tuple[Path, Path]:
     texts: List[str] = []
     meta_rows: List[str] = []
@@ -89,11 +98,16 @@ def run_embed_hash(
         out_meta.write_text("", encoding="utf-8")
         return out_vectors, out_meta
 
-    # simple batch loop (hash backend is cheap, but keep the interface)
+    # simple batch-embed loop (hash backend is cheap, but keep the interface)
     vecs = []
     for i in range(0, len(texts), batch_size):
-        vecs.append(_hash_vec(texts[i : i + batch_size], dim=dim))
+        batch = texts[i : i + batch_size]
+        # vecs.append(_hash_vec(texts[i : i + batch_size], dim=dim))
+        vecs.append(_embed_batch(batch, backend=backend, model=model, dim=dim))
     mat = np.vstack(vecs).astype(np.float32)
+    assert mat.shape == (len(texts), dim)
+
+    # Write artifacts
     np.save(out_vectors, mat)
     out_meta.write_text("\n".join(meta_rows) + "\n", encoding="utf-8")
     return out_vectors, out_meta

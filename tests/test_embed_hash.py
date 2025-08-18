@@ -15,13 +15,17 @@ def test_run_embed_hash_creates_outputs(tmp_path: Path):
 
     vectors_path = tmp_path / "vectors.npy"
     meta_path = tmp_path / "meta.jsonl"
-    v, m = run_embed_hash(chunks_out, vectors_path, meta_path, dim=32, batch_size=16)
+    v, m = run_embed_hash(
+        chunks_out, vectors_path, meta_path, dim=32, batch_size=16, backend="hash"
+    )
 
     assert v.exists() and m.exists()
     mat = np.load(v)
     assert mat.ndim == 2 and mat.shape[1] == 32 and mat.shape[0] >= 3
 
     # determinism
-    v2, _ = run_embed_hash(chunks_out, vectors_path, meta_path, dim=32, batch_size=16)
+    v2, _ = run_embed_hash(
+        chunks_out, vectors_path, meta_path, dim=32, batch_size=16, backend="hash"
+    )
     mat2 = np.load(v2)
     assert np.allclose(mat, mat2)
