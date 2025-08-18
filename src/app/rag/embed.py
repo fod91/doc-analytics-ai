@@ -1,17 +1,31 @@
 from __future__ import annotations
 from typing import Iterable, List, Tuple
+from dataclasses import dataclass
 from pathlib import Path
 import hashlib
 import json
 import numpy as np
 
 from app.rag.schema import ChunkRecord
+from app.rag.config import get_settings
 
 
 DEFAULT_CHUNKS = Path("artifacts/chunks/chunks.jsonl")
 DEFAULT_EMB_DIR = Path("artifacts/emb")
 DEFAULT_VECTORS = DEFAULT_EMB_DIR / "vectors.npy"
 DEFAULT_META = DEFAULT_EMB_DIR / "meta.jsonl"
+DEFAULT_CHECKSUM = DEFAULT_EMB_DIR / "checksums.txt"
+
+
+@dataclass(frozen=True)
+class Fingerprint:
+    chunks_sha256: str
+    backend: str
+    model: str
+    dim: int
+
+    def line(self) -> str:
+        return f"{self.chunks_sha256} | backend={self.backend} | model={self.model} | dim={self.dim}"
 
 
 def _file_sha256(p: Path) -> str:
@@ -33,6 +47,15 @@ def _file_sha256(p: Path) -> str:
     """
     with p.open("rb") as f:
         return hashlib.file_digest(f, "sha256").hexdigest()
+
+
+def _fingerprint(chunks_path: Path, backend: str, model: str, dim: int) -> Fingerprint:
+    return Fingerprint(
+        chunks_sha256=_file_sha256(chunks_path),
+        backend=backend,
+        model=model,
+        dim=dim,
+    )
 
 
 def _iter_chunks(p: Path) -> Iterable[ChunkRecord]:
@@ -86,16 +109,54 @@ def _embed_batch(texts: List[str], backend: str, model: str, dim: int) -> np.nda
     raise ValueError(f"Unknown backend: {backend}")
 
 
-def run_embed_hash(
+def run_embed(
     chunks_path: Path = DEFAULT_CHUNKS,
     out_vectors: Path = DEFAULT_VECTORS,
     out_meta: Path = DEFAULT_META,
+    out_checksum: Path = DEFAULT_CHECKSUM,
     *,
+    force: bool = False,
+    batch_size: int = 64,
     backend: str | None = None,
     model: str | None = None,
-    batch_size: int = 64,
-    dim: int = 384,
+    dim: int | None = None,
 ) -> Tuple[Path, Path]:
+    """
+    Reads chunk JSONL -> writes vectors.npy (float32) and meta.jsonl (rows aligned).
+    Creates/updates checksums.txt with the current fingerprint. If fingerprint matches and
+    files exist, re-use cached outputs unless force=True.
+    """
+    settings = get_settings()
+    backend = backend or settings.embed_backend
+    model = model or settings.embed_model
+    dim = dim or int(settings.embed_dim)
+
+    if not chunks_path.exists():
+        raise FileNotFoundError(f"Chunks file not found: {chunks_path}")
+
+    out_vectors.parent.mkdir(parents=True, exist_ok=True)
+
+    fp = _fingerprint(chunks_path, backend=backend, model=model, dim=dim)
+    cached_ok = False
+    if (
+        out_vectors.exists()
+        and out_meta.exists()
+        and out_checksum.exists()
+        and not force
+    ):
+        try:
+            last_line = (
+                out_checksum.read_text(encoding="utf-8").strip().splitlines()[-1]
+            )
+            if last_line == fp.line():
+                cached_ok = True
+        except Exception:
+            cached_ok = False
+
+    if cached_ok:
+        return out_vectors, out_meta
+
+    # Load all chunks into memory (small fixtures), collect texts and meta rows
     texts: List[str] = []
     meta_rows: List[str] = []
     for idx, rec in enumerate(_iter_chunks(chunks_path)):
@@ -115,10 +176,11 @@ def run_embed_hash(
             )
         )
 
-    out_vectors.parent.mkdir(parents=True, exist_ok=True)
     if not texts:
+        # write empty files deterministically
         np.save(out_vectors, np.empty((0, dim), dtype=np.float32))
         out_meta.write_text("", encoding="utf-8")
+        out_checksum.write_text(fp.line() + "\n", encoding="utf-8")
         return out_vectors, out_meta
 
     # simple batch-embed loop (hash backend is cheap, but keep the interface)
@@ -133,4 +195,7 @@ def run_embed_hash(
     # Write artifacts
     np.save(out_vectors, mat)
     out_meta.write_text("\n".join(meta_rows) + "\n", encoding="utf-8")
+    with out_checksum.open("a", encoding="utf-8") as f:
+        f.write(fp.line() + "\n")
+
     return out_vectors, out_meta
