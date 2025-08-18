@@ -2,6 +2,7 @@ from functools import lru_cache
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+
 class GenAISettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="", case_sensitive=False)
 
