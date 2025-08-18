@@ -57,9 +57,32 @@ def _hash_vec(texts: List[str], dim: int) -> np.ndarray:
     return out / norms
 
 
+def _st_vec(texts: List[str], model_name: str, dim: int) -> np.ndarray:
+    # Semantic embeddings via sentence-transformers (CPU)
+    try:
+        from sentence_transformers import SentenceTransformer
+        import numpy as np
+    except Exception as e:
+        raise RuntimeError(
+            "Install sentence-transformers and CPU torch to use EMBED_BACKEND=st"
+        ) from e
+
+    model = SentenceTransformer(model_name, device="cpu")
+    vecs = model.encode(texts, convert_to_numpy=True, normalize_embeddings=True)
+    if vecs.shape[1] != dim:
+        rng = np.random.default_rng(0x10C0FFEE)
+        proj = rng.normal(size=(vecs.shape[1], dim)).astype(np.float32)
+        proj /= np.linalg.norm(proj, axis=0, keepdims=True) + 1e-12
+        vecs = vecs @ proj
+        vecs /= np.linalg.norm(vecs, axis=1, keepdims=True) + 1e-12
+    return vecs.astype(np.float32)
+
+
 def _embed_batch(texts: List[str], backend: str, model: str, dim: int) -> np.ndarray:
     if backend == "hash":
         return _hash_vec(texts, dim=dim)
+    if backend == "st":
+        return _st_vec(texts, model_name=model, dim=dim)
     raise ValueError(f"Unknown backend: {backend}")
 
 
