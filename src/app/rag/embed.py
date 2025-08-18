@@ -199,3 +199,24 @@ def run_embed(
         f.write(fp.line() + "\n")
 
     return out_vectors, out_meta
+
+
+def main():
+    # N.B. - uses defaults (dim) for all-MiniLM-L6-v2 model here
+    DEFAULT_EMB_DIR.mkdir(parents=True, exist_ok=True)
+    vec_p, meta_p = run_embed(
+        chunks_path=DEFAULT_CHUNKS,
+        out_vectors=DEFAULT_VECTORS,
+        out_meta=DEFAULT_META,
+        out_checksum=DEFAULT_CHECKSUM,
+        backend="hash",
+        dim=384,
+        batch_size=64,
+    )
+    print(str(vec_p))
+    print(str(meta_p))
+    print(str(DEFAULT_CHECKSUM))
+
+
+if __name__ == "__main__":
+    main()
