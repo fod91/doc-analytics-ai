@@ -5,7 +5,7 @@ import streamlit as st
 API_BASE = os.getenv("DOC_AI_API_BASE", "http://localhost:8000")
 
 st.set_page_config(page_title="Document Analytics AI", layout="centered")
-st.title("Document Analytics AI — Sprint 1")
+st.title("Document Analytics AI")
 
 # Health
 st.subheader("Health")
