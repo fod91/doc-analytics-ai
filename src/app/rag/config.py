@@ -21,6 +21,7 @@ class GenAISettings(BaseSettings):
     embed_model: str = Field(default="sentence-transformers/all-MiniLM-L6-v2")
     embed_backend: str = Field(default="hash")  # 'hash' or 'st'/SentenceTransformer
     embed_dim: int = Field(default=384)
+    index_backend: str = Field(default="np")  # 'np' or 'faiss' when it is supported
 
 
 @lru_cache(maxsize=1)
