@@ -7,6 +7,8 @@ from typing import Dict, Tuple
 from app.rag.index_select import search as index_search
 from app.rag.embed import DEFAULT_META, DEFAULT_VECTORS
 from app.rag.chunk import DEFAULT_OUT_FILE as DEFAULT_CHUNKS
+from app.rag.rerank import rerank_keyword
+from app.rag.config import RerankStrategy
 
 
 def _load_chunks_map(chunks_path: Path) -> Dict[Tuple[str, int, int], str]:
@@ -35,11 +37,28 @@ def retrieve(
     vectors_path: Path = DEFAULT_VECTORS,
     meta_path: Path = DEFAULT_META,
     chunks_path: Path = DEFAULT_CHUNKS,
+    rerank: RerankStrategy = RerankStrategy.auto,
+    candidate_multiplier: int = 4,
 ):
+    # Decide re-ranking strategy
+    if rerank == RerankStrategy.auto:
+        # heuristic: lexical rerank helps hash, rarely needed for ST
+        strategy = (
+            RerankStrategy.keyword
+            if (embed_backend or "hash") == "hash"
+            else RerankStrategy.none
+        )
+    else:
+        strategy = rerank
+
+    # Create a candidate
+    # k0 = k * (candidate_multiplier if rerank else 1)
+    k0 = k * (candidate_multiplier if strategy != RerankStrategy.none else 1)
+
     # Returns: contexts: [{doc_id, rel_path, page, chunk_id, score, rank, text}]
     hits = index_search(
         query,
-        k=k,
+        k=k0,
         index_backend=index_backend,
         embed_backend=embed_backend,
         model=model,
@@ -64,4 +83,10 @@ def retrieve(
                 "text": txt,
             }
         )
+
+    # apply rerank strategy
+    if strategy == RerankStrategy.keyword:
+        contexts = rerank_keyword(query, contexts)[:k]
+    else:
+        contexts = contexts[:k]
     return contexts

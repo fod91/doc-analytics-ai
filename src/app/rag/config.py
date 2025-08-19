@@ -1,6 +1,14 @@
 from functools import lru_cache
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from enum import StrEnum
+
+
+class RerankStrategy(StrEnum):
+    none = "none"
+    # choose based on embed backend
+    auto = "auto"
+    keyword = "keyword"
 
 
 class GenAISettings(BaseSettings):
@@ -22,6 +30,8 @@ class GenAISettings(BaseSettings):
     embed_backend: str = Field(default="hash")  # 'hash' or 'st'/SentenceTransformer
     embed_dim: int = Field(default=384)
     index_backend: str = Field(default="np")  # 'np' or 'faiss' when it is supported
+    rerank_strategy: RerankStrategy = Field(default=RerankStrategy.auto)
+    candidate_multiplier: int = Field(default=4, ge=1, le=10)
 
 
 @lru_cache(maxsize=1)

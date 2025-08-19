@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Query, Depends
+from typing import Literal
 from app.rag.index_select import search as index_search
-from app.rag.config import get_settings
+from app.rag.config import get_settings, RerankStrategy
 from app.rag import retrieve as retriever
 from app.rag import prompt as prompt_builder
 from app.rag import llm as llm_mod
@@ -77,14 +78,21 @@ def genai_ask(
     dim: int | None = Query(
         None, description="embedding dimension (must match vectors)"
     ),
+    rerank: Literal["none", "auto", "keyword"] | None = None,
+    candidate_multiplier: int | None = None,
 ):
     try:
+        s = get_settings()
+        strategy = RerankStrategy(rerank or s.rerank_strategy)
+        cand_mul = candidate_multiplier or s.candidate_multiplier
         contexts = retriever.retrieve(
             query,
             k=k,
             index_backend=index_backend,
             embed_backend=embed_backend,
             dim=dim,
+            rerank=strategy,
+            candidate_multiplier=cand_mul,
         )
         prompt = prompt_builder.build_prompt(query, contexts)
         answer = llm_mod.generate_answer(prompt, contexts, backend="mock")
