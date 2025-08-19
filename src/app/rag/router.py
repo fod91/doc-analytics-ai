@@ -1,7 +1,19 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
 from app.rag.index_select import search as index_search
+from app.rag.config import get_settings
 
-router = APIRouter(prefix="/genai", tags=["genai"])
+
+def _ensure_enabled():
+    # If feature is off, pretend the routes aren't there
+    if not get_settings().feature_genai:
+        raise HTTPException(status_code=404, detail="Not Found")
+
+
+router = APIRouter(
+    prefix="/genai",
+    tags=["genai"],
+    dependencies=[Depends(_ensure_enabled)],
+)
 
 
 @router.get("", include_in_schema=False)
