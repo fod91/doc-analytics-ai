@@ -134,7 +134,16 @@ def run_embed(
     if not chunks_path.exists():
         raise FileNotFoundError(f"Chunks file not found: {chunks_path}")
 
-    out_vectors.parent.mkdir(parents=True, exist_ok=True)
+    vectors_dim_mismatch = False
+    # out_vectors.parent.mkdir(parents=True, exist_ok=True)
+    if out_vectors.exists():
+        try:
+            _mat = np.load(out_vectors, mmap_mode="r")
+            if _mat.ndim != 2 or _mat.shape[1] != dim:
+                vectors_dim_mismatch = True
+        except Exception:
+            # unreadable file? treat as mismatch to force rebuild
+            vectors_dim_mismatch = True
 
     fp = _fingerprint(chunks_path, backend=backend, model=model, dim=dim)
     cached_ok = False
@@ -142,6 +151,7 @@ def run_embed(
         out_vectors.exists()
         and out_meta.exists()
         and out_checksum.exists()
+        and not vectors_dim_mismatch
         and not force
     ):
         try:
