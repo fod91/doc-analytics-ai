@@ -15,6 +15,7 @@ from .settings import S3_BUCKET
 from . import models  # noqa: F401
 from .models import ObjectStoreItem
 from app.rag.router import router as genai_router
+from app.rag.config import get_settings
 
 
 log = logging.getLogger("doc-analytics-ai")
@@ -154,4 +155,9 @@ def analytics_sentiment(db: Session = Depends(get_db)):
 
 
 def create_app() -> FastAPI:
+    # Capture any environment changes
+    try:
+        get_settings.cache_clear()
+    except Exception:
+        pass
     return app
