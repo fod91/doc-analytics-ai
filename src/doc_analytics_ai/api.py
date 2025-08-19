@@ -104,7 +104,6 @@ def ingest(items: list[IngestItem], db: Session = Depends(get_db)):
 
 
 @app.post("/upload")
-# async def upload(file: UploadFile = File(...)):
 async def upload(
     file: UploadFile = File(...),
     source: str | None = Form(None),
