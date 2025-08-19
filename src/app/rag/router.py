@@ -1,6 +1,9 @@
 from fastapi import APIRouter, HTTPException, Query, Depends
 from app.rag.index_select import search as index_search
 from app.rag.config import get_settings
+from app.rag import retrieve as retriever
+from app.rag import prompt as prompt_builder
+from app.rag import llm as llm_mod
 
 
 def _ensure_enabled():
@@ -59,5 +62,48 @@ def genai_search(
                 "chunk_id": h.chunk_id,
             }
             for h in hits
+        ],
+    }
+
+
+@router.get("/ask", summary="Answer a question using retrieved context (mock LLM)")
+def genai_ask(
+    query: str = Query(..., min_length=1),
+    k: int = Query(5, ge=1, le=10),
+    index_backend: str | None = Query(
+        None, description="'np'"
+    ),  # or faiss when available
+    embed_backend: str | None = Query(None, description="'hash' or 'st'"),
+    dim: int | None = Query(
+        None, description="embedding dimension (must match vectors)"
+    ),
+):
+    try:
+        contexts = retriever.retrieve(
+            query,
+            k=k,
+            index_backend=index_backend,
+            embed_backend=embed_backend,
+            dim=dim,
+        )
+        prompt = prompt_builder.build_prompt(query, contexts)
+        answer = llm_mod.generate_answer(prompt, contexts, backend="mock")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    return {
+        "query": query,
+        "k": k,
+        "answer": answer,
+        "citations": [
+            {
+                "rank": c["rank"],
+                "score": c["score"],
+                "doc_id": c["doc_id"],
+                "rel_path": c["rel_path"],
+                "page": c["page"],
+                "chunk_id": c["chunk_id"],
+            }
+            for c in contexts
         ],
     }
