@@ -4,6 +4,10 @@ from typing import List, Optional
 from app.rag.config import get_settings
 from app.rag.index_np import search_np, SearchResult as NPResult
 
+try:
+    from app.rag.index_faiss import search_faiss  # optional
+except Exception:
+    search_faiss = None
 
 SearchResult = NPResult
 
@@ -33,6 +37,18 @@ def search(
 
     if which_index == "np":
         return search_np(
+            query,
+            k=k,
+            backend=which_embed,
+            model=model,
+            dim=dim,
+            **paths,
+        )
+
+    if which_index == "faiss":
+        if search_faiss is None:
+            raise RuntimeError("FAISS not installed")
+        return search_faiss(
             query,
             k=k,
             backend=which_embed,
