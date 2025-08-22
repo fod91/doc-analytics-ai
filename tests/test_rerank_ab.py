@@ -1,66 +1,16 @@
 from __future__ import annotations
-from pathlib import Path
 import pytest
 
-from app.rag.ingest import run_ingest, DEFAULT_SRC
-from app.rag.chunk import run_chunker, DEFAULT_CHUNK_SIZE, DEFAULT_OVERLAP
-from app.rag.embed import run_embed
 from app.rag.retrieve import retrieve
+
+
+pytest_plugins = ("helpers",)
 
 
 def _contains_literal(q: str, s: str) -> bool:
     qn = (q or "").casefold().replace("-", " ")
     sn = (s or "").casefold().replace("-", " ")
     return qn in sn
-
-
-# Fixtures build ephemeral artifacts in tmp_path and return paths
-
-
-@pytest.fixture(scope="function")
-def corpus_hash(tmp_path: Path):
-    ingest_out = tmp_path / "ingest.jsonl"
-    chunks_out = tmp_path / "chunks.jsonl"
-    vectors = tmp_path / "vectors.npy"
-    meta = tmp_path / "meta.jsonl"
-    checksum = tmp_path / "checksums.txt"
-
-    run_ingest(DEFAULT_SRC, ingest_out)
-    run_chunker(
-        ingest_out, chunks_out, size=DEFAULT_CHUNK_SIZE, overlap=DEFAULT_OVERLAP
-    )
-    run_embed(
-        chunks_path=chunks_out,
-        out_vectors=vectors,
-        out_meta=meta,
-        out_checksum=checksum,
-        backend="hash",
-        dim=32,
-    )
-    return dict(vectors_path=vectors, meta_path=meta, chunks_path=chunks_out)
-
-
-@pytest.fixture(scope="function")
-def corpus_st(tmp_path: Path):
-    ingest_out = tmp_path / "ingest.jsonl"
-    chunks_out = tmp_path / "chunks.jsonl"
-    vectors = tmp_path / "vectors.npy"
-    meta = tmp_path / "meta.jsonl"
-    checksum = tmp_path / "checksums.txt"
-
-    run_ingest(DEFAULT_SRC, ingest_out)
-    run_chunker(
-        ingest_out, chunks_out, size=DEFAULT_CHUNK_SIZE, overlap=DEFAULT_OVERLAP
-    )
-    run_embed(
-        chunks_path=chunks_out,
-        out_vectors=vectors,
-        out_meta=meta,
-        out_checksum=checksum,
-        backend="st",
-        dim=384,
-    )
-    return dict(vectors_path=vectors, meta_path=meta, chunks_path=chunks_out)
 
 
 @pytest.mark.parametrize("query", ["Quickbeam", "athelas", "barrow-blade"])
