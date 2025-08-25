@@ -32,6 +32,8 @@ class GenAISettings(BaseSettings):
     index_backend: str = Field(default="faiss")  # or 'np'
     rerank_strategy: RerankStrategy = Field(default=RerankStrategy.auto)
     candidate_multiplier: int = Field(default=4, ge=1, le=10)
+    # PDF extractor
+    pdf_backend: str = Field(default="pypdf", description="PDF extractor backend")
 
 
 @lru_cache(maxsize=1)
