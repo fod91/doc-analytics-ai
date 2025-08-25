@@ -16,3 +16,4 @@ black
 ruff
 python-dotenv
 alembic==1.13.2
+pypdf>=6
