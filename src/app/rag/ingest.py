@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import hashlib
 import logging
+import argparse
 from pathlib import Path
 from typing import Iterable, Dict, Any, Tuple, Iterator
 
@@ -124,8 +125,29 @@ def run_ingest(src_root: Path = DEFAULT_SRC, out_file: Path = DEFAULT_OUT_FILE) 
 
 
 def main():
-    out = run_ingest(DEFAULT_SRC, DEFAULT_OUT_FILE)
-    print(str(out))
+    ap = argparse.ArgumentParser(description="Ingest .md/.txt and PDFs into JSONL")
+    ap.add_argument(
+        "source",
+        nargs="?",
+        default=str(DEFAULT_SRC),
+        help="Source directory or single file (.md/.txt/.pdf). Default: evals/fixtures",
+    )
+    ap.add_argument(
+        "-o",
+        "--out",
+        default=str(DEFAULT_OUT_FILE),
+        help=f"Output JSONL path. Default: {DEFAULT_OUT_FILE}",
+    )
+    ap.add_argument(
+        "--pdf-backend",
+        dest="pdf_backend",
+        choices=["pypdf"],
+        help="Temporarily override PDF extractor backend for this run.",
+    )
+    args = ap.parse_args()
+    src = Path(args.source)
+    out = Path(args.out)
+    run_ingest(src, out)
 
 
 if __name__ == "__main__":
