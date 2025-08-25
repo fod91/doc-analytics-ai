@@ -1,0 +1,4 @@
+{"query":"Quickbeam", "expect": {"rel_path": "docs/lotr_two_towers.md", "literal": true}}
+{"query":"athelas", "expect": {"rel_path": "docs/lotr_fellowship.md", "literal": true}}
+{"query":"barrow-blade", "expect": {"rel_path": "docs/lotr_fellowship.md", "literal": true}}
+{"query":"Sharkey", "expect": {"rel_path": "docs/lotr_rotk.md", "literal": true}}
