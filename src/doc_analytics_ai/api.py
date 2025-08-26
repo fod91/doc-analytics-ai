@@ -6,21 +6,25 @@ import threading
 import time
 import logging
 import uuid
+from contextlib import asynccontextmanager
 
+# DB/S3 pieces
 from .db import Base, engine, SessionLocal
 from .schema import IngestItem, SentimentSummary
 from .s3 import ensure_bucket_if_missing, upload_fileobj, presigned_get_url, head_object
 from .analytics import summarise_sentiment
 from .settings import S3_BUCKET
-
-# models import - needed to establish tables if DB not up on startup
-# otherwise psql will not see any relations
 from . import models  # noqa: F401
 from .models import ObjectStoreItem
 
-log = logging.getLogger("doc-analytics-ai")
+# GenAI pieces
+from app.rag.router import router as genai_router
+from app.rag.config import get_settings
 
-app = FastAPI(title="doc-analytics-ai", version="0.1.0")
+
+log = logging.getLogger("doc-analytics-ai")
+if not log.handlers:
+    logging.basicConfig(level=logging.INFO)
 
 DB_READY = False
 S3_READY = False
@@ -65,11 +69,23 @@ def _background_s3_ensurer(interval: float = 2.0, max_seconds: int = 120) -> Non
         log.error("S3 did not become ready within %ss.", max_seconds)
 
 
-@app.on_event("startup")
-def on_startup():
-    # kick off a background thread; don't block app startup
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Capture any environment changes
+    try:
+        get_settings.cache_clear()
+    except Exception:
+        pass
+
+    # kick off the background threads; don't block app startup
     threading.Thread(target=_background_db_ensurer, daemon=True).start()
     threading.Thread(target=_background_s3_ensurer, daemon=True).start()
+    yield
+
+
+# Include the /genai and it will determine if it's available based on env settings (404 if disabled)
+app = FastAPI(title="doc-analytics-ai", version="0.1.0", lifespan=lifespan)
+app.include_router(genai_router)
 
 
 def get_db():
@@ -97,7 +113,6 @@ def ingest(items: list[IngestItem], db: Session = Depends(get_db)):
 
 
 @app.post("/upload")
-# async def upload(file: UploadFile = File(...)):
 async def upload(
     file: UploadFile = File(...),
     source: str | None = Form(None),
@@ -145,3 +160,12 @@ def analytics_sentiment(db: Session = Depends(get_db)):
     rows = db.query(models.Transcript.text, models.Transcript.label).all()
     summary = summarise_sentiment(rows)
     return SentimentSummary(**summary)
+
+
+def create_app() -> FastAPI:
+    # Capture any environment changes
+    try:
+        get_settings.cache_clear()
+    except Exception:
+        pass
+    return app
