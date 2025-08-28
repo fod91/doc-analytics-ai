@@ -18,8 +18,12 @@ from . import models  # noqa: F401
 from .models import ObjectStoreItem
 
 # GenAI pieces
-from app.rag.router import router as genai_router
 from app.rag.config import get_settings
+from app.rag.router import router as vanilla_router
+try:
+    from app.rag.router_framework import router as framework_router
+except Exception:
+    framework_router = vanilla_router
 
 
 log = logging.getLogger("doc-analytics-ai")
@@ -83,9 +87,17 @@ async def lifespan(app: FastAPI):
     yield
 
 
+def select_rag_router():
+    try:
+        backend = (get_settings().rag_backend or "vanilla").lower()
+    except Exception:
+        backend = "vanilla"
+    return framework_router if backend == "framework" else vanilla_router
+
+
 # Include the /genai and it will determine if it's available based on env settings (404 if disabled)
 app = FastAPI(title="doc-analytics-ai", version="0.1.0", lifespan=lifespan)
-app.include_router(genai_router)
+app.include_router(select_rag_router())
 
 
 def get_db():
