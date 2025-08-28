@@ -4,6 +4,17 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from enum import StrEnum
 
 
+class RagBackend(StrEnum):
+    vanilla = "vanilla"
+    framework = "framework"
+
+
+class LlmMode(StrEnum):
+    mock = "mock"
+    local = "local"
+    openai = "openai"
+
+
 class RerankStrategy(StrEnum):
     none = "none"
     # choose based on embed backend
@@ -34,6 +45,10 @@ class GenAISettings(BaseSettings):
     candidate_multiplier: int = Field(default=4, ge=1, le=10)
     # PDF extractor
     pdf_backend: str = Field(default="pypdf", description="PDF extractor backend")
+    # Adding framework selection fields
+    rag_backend: RagBackend = Field(default=RagBackend.vanilla)
+    llm_mode: LlmMode = Field(default=LlmMode.mock)
+    retrieve_mq: bool = Field(default=False)
 
 
 @lru_cache(maxsize=1)
